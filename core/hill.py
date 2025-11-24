@@ -4,7 +4,9 @@ import numpy as np
 from numpy import int64
 from numpy.typing import NDArray
 
-from exceptions import TextoInvalidoError, MatrizInvalidaMultiplicacaoError
+from exceptions import TextoInvalidoError
+
+from . import matrizes
 
 # Lista que mapeia cada letra do alfabeto com um número (índice da lista)
 _LISTA_ALFABETO = ['A','B','C','D','E','F','G','H','I','J','K','L','M',
@@ -61,66 +63,7 @@ def _converter_texto_em_numeros(texto: str) -> NDArray[int64]:
     try:
         return np.array([_LISTA_ALFABETO.index(char.upper()) for char in texto])
     except ValueError as e:
-        raise TextoInvalidoError(f"Um dos caracteres do texto '{texto}' é inválido!")
-
-def _multiplicar_matrizes(matriz_a: List[int | float] | List[List[int | float]] | NDArray,
-                          matriz_b: List[int | float] | List[List[int | float]] | NDArray) -> NDArray:
-    '''
-    Faz a multiplicação da matriz_a pela matriz_b.
-
-    Params
-    ------
-    matriz_a : List[int | float], List[List[int | float]] ou NDArray
-        Matriz a ser multiplicada.
-
-    matriz_b : List[int | float], List[List[int | float]] ou NDArray
-        Matriz a ser multiplicada.
-
-    Returns
-    -------
-    Nova matriz resultante da multiplicação
-    de matriz_a por matriz_b.
-
-    Raises
-    ------
-    MatrizInvalidaMultiplicacaoError se as matrizes
-    possuem dimensões incompatíveis.
-    '''
-
-    # Converte matrizes para numpy
-    matriz_a_np = np.array(matriz_a)
-    matriz_b_np = np.array(matriz_b)
-
-    # Obtém dimensões das matrizes
-    linhas_matriz_a, *colunas_matriz_a = matriz_a_np.shape
-    linhas_matriz_b, *colunas_matriz_b = matriz_b_np.shape
-
-    # Se a matriz for unidimensional, faz com que a quantidade de colunas seja 1
-    if len(colunas_matriz_a) == 0:
-        colunas_matriz_a = 1
-        matriz_a_np = matriz_a_np.reshape(linhas_matriz_a, colunas_matriz_a)
-    else:
-        colunas_matriz_a = colunas_matriz_a[0]
-
-    if len(colunas_matriz_b) == 0:
-        colunas_matriz_b = 1
-        matriz_b_np = matriz_b_np.reshape(linhas_matriz_b, colunas_matriz_b)
-    else:
-        colunas_matriz_b = colunas_matriz_b[0]
-
-    # Se o número de colunas de A difere do número de linhas de B, ERRO!
-    if colunas_matriz_a != linhas_matriz_b:
-        raise MatrizInvalidaMultiplicacaoError("As matrizes possuem dimensões incompatíveis: "
-                                               f"{matriz_a_np.shape} {matriz_b_np.shape}")
-
-    matriz_resultante = np.zeros((linhas_matriz_a, colunas_matriz_b)) # inicia a matriz com 0
-
-    for i in range(linhas_matriz_a):
-        for j in range(colunas_matriz_b):
-            for k in range(colunas_matriz_a):
-                matriz_resultante[i,j] += matriz_a_np[i,k] * matriz_b_np[k,j]
-
-    return matriz_resultante
+        raise TextoInvalidoError(f"Um dos caracteres do texto '{texto}' é inválido: ", e) from e
 
 def _converter_numeros_em_texto(numeros: List[int] | List[List[int]] | NDArray[int64]) -> str:
     '''
@@ -182,7 +125,7 @@ def criptografar_hill(texto: str, matriz_codificadora: List[int] | List[List[int
 
         grupo_int = _converter_texto_em_numeros(grupo_str) # converte em números
 
-        grupo_multiplicado = _multiplicar_matrizes(matriz_codificadora_np, grupo_int) # multiplica a matriz codificadora pelo grupo
+        grupo_multiplicado = matrizes.multiplicar_matrizes(matriz_codificadora_np, grupo_int) # multiplica a matriz codificadora pelo grupo
 
         grupo_multiplicado_str = _converter_numeros_em_texto(grupo_multiplicado)
 

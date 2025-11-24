@@ -15,3 +15,20 @@ class MatrizInvalidaMultiplicacaoError(Exception):
     '''
     def __init__(self, *args: object) -> None:
         super().__init__(*args)
+
+class MatrizInvalidaDeterminanteError(Exception):
+    '''
+    Exception utilizada quando o determinante de uma matriz
+    não pode ser calculado.
+    '''
+    def __init__(self, *args: object) -> None:
+        super().__init__(*args)
+
+
+class MatrizInvalidaInversaError(Exception):
+    '''
+    Exception utilizada quando uma matriz não possui
+    matriz inversa.
+    '''
+    def __init__(self, *args: object) -> None:
+        super().__init__(*args)
