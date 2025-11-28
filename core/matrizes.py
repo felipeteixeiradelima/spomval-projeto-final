@@ -4,7 +4,30 @@ import numpy as np
 from numpy import int64, float64
 from numpy.typing import NDArray
 
-from exceptions import MatrizInvalidaMultiplicacaoError, MatrizInvalidaDeterminanteError, MatrizInvalidaInversaError
+from .exceptions import MatrizInvalidaMultiplicacaoError, MatrizInvalidaDeterminanteError, MatrizInvalidaInversaError
+
+def converter_matriz_numpy(matriz: List[int] | List[List[int]] | NDArray[int64] | List[float] | List[List[float]] | NDArray[float64]) -> NDArray[int64] | NDArray[float64]:
+    '''
+    Converte matriz para array numpy.
+
+    Params
+    ------
+    matriz : ListLike
+        Matriz a ser convertida.
+
+    Returns
+    -------
+    Matriz convertida em array numpy.
+    '''
+    matriz_np = np.array(matriz)
+
+    n_linhas = matriz_np.shape[0]
+
+    # Se é unidimensional, redimensiona a matriz
+    if len(matriz_np.shape) < 2:
+        matriz_np = matriz_np.reshape(n_linhas, 1)
+
+    return matriz_np
 
 def _is_matriz_quadrada(matriz: NDArray[int64|float64]) -> bool:
     '''
@@ -48,8 +71,8 @@ def multiplicar_matrizes(matriz_a: List[int | float] | List[List[int | float]] |
     '''
 
     # Converte matrizes para numpy
-    matriz_a_np = np.array(matriz_a)
-    matriz_b_np = np.array(matriz_b)
+    matriz_a_np = converter_matriz_numpy(matriz_a)
+    matriz_b_np = converter_matriz_numpy(matriz_b)
 
     # Obtém dimensões das matrizes
     linhas_matriz_a, *colunas_matriz_a = matriz_a_np.shape
@@ -147,7 +170,7 @@ def determinante(matriz: NDArray[int64|float64]) -> float:
 
     return det
 
-def matriz_inversa(matriz: NDArray[int64|float64]) -> NDArray[float64]:
+def matriz_inversa(matriz: NDArray[int64|float64]) -> NDArray[int64] | NDArray[float64]:
     '''
     Calcula a matriz inversa da matriz dada
     usando eliminação de Gauss-Jordan
@@ -203,11 +226,11 @@ def matriz_inversa(matriz: NDArray[int64|float64]) -> NDArray[float64]:
                 M[j] = [M[j][k] - fator * M[i][k] for k in range(2*n)]
 
     # Extrai a parte da direita como inversa
-    inv = [linha[n:] for linha in M]
+    matriz_inversa = [linha[n:] for linha in M]
 
-    inv_np = np.array(inv)
+    matriz_inversa_np = converter_matriz_numpy(matriz_inversa)
 
-    return inv_np
+    return matriz_inversa_np
 
 def obter_inverso_modular(matriz: NDArray[int64|float64], modulo: int) -> float | None:
     '''
@@ -237,3 +260,38 @@ def obter_inverso_modular(matriz: NDArray[int64|float64], modulo: int) -> float 
         return x
     except ValueError:
         print(f"O inverso modular de {det} módulo {modulo} não existe.")
+
+def multiplicar_matriz_por_escalar(matriz: NDArray[int64|float64], escalar: int | float):
+    '''
+    Faz a multiplicação da matriz
+    passada como parâmetro pelo
+    escalar passado como parâmetro.
+
+    Params
+    ------
+    matriz : NDArray[int64|float64]
+        Matriz a ser multiplicada pelo escalar.
+    escalar: int | float
+        Número racional para multiplicar a matriz por.
+
+    Returns
+    -------
+    Matriz multiplicada pelo escalar.
+    '''
+    matriz_copia = matriz.copy()
+
+    n_linhas = matriz_copia.shape[0]
+    n_colunas = matriz_copia.shape[1]
+
+    for i in range(n_linhas):
+        for j in range(n_colunas):
+            matriz_copia[i,j] = matriz_copia[i,j] * escalar
+
+    return matriz_copia
+
+if __name__ == "__main__":
+    matriz = converter_matriz_numpy([[0,2,4,2], [1,2,3,4]])
+
+    matriz_mul = multiplicar_matriz_por_escalar(matriz, 3)
+
+    print(matriz, matriz_mul, sep='\n')

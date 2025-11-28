@@ -111,7 +111,7 @@ def criptografar_hill(texto: str, matriz_codificadora: List[int] | List[List[int
     '''
     texto_criptografado: str = ''
 
-    matriz_codificadora_np = np.array(matriz_codificadora) # converte a matriz para numpy
+    matriz_codificadora_np = matrizes.converter_matriz_numpy(matriz_codificadora) # converte a matriz para numpy
 
     n = matriz_codificadora_np.shape[0] # ordem da matriz
 
@@ -132,3 +132,40 @@ def criptografar_hill(texto: str, matriz_codificadora: List[int] | List[List[int
         texto_criptografado +=grupo_multiplicado_str
 
     return texto_criptografado
+
+def decriptografar_hill(texto_encriptografado: str,
+                         matriz_codificadora: List[int] | List[List[int]] | NDArray[int64]) -> str:
+    '''
+    Decriptografa o texto encriptografado
+    em cifra de hill usando a matriz codificadora.
+
+    Params
+    ------
+    texto_encriptografado : str
+        Texto a ser decriptografado.
+    matriz_codificadora : List[int] | List[List[int]] | NDArray[int64])
+        Matriz usada na criptografia do texto.
+
+    Returns
+    -------
+    Texto descriptografado.
+    '''
+    MODULO = 26
+
+    # Converte matriz codificadora para numpy
+    matriz_codificadora_np = matrizes.converter_matriz_numpy(matriz_codificadora)
+
+    # Cria matriz decodificadora vazia
+    matriz_decodificadora = np.empty(matriz_codificadora_np.shape)
+
+    # Obtém matriz inversa e inverso modular da matriz codificadora
+    matriz_inversa = matrizes.matriz_inversa(matriz_codificadora_np)
+    inverso_modular = matrizes.obter_inverso_modular(matriz_codificadora_np, modulo=MODULO)
+
+    # Obtém matriz decodificadora (inverso * matriz_inversa % 26)
+
+    # Itera sobre os elementos do texto de forma agrupada
+        # Multiplica a matriz codificadora pelo grupo (fazendo % 26)
+        # Converte para texto
+
+    return ''
