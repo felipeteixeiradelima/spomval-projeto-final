@@ -4,9 +4,9 @@ import numpy as np
 from numpy import int64, float64
 from numpy.typing import NDArray
 
-from .exceptions import MatrizInvalidaMultiplicacaoError, MatrizInvalidaDeterminanteError, MatrizInvalidaInversaError
+from .exceptions import MatrizInvalidaMultiplicacaoError, MatrizInvalidaDeterminanteError, MatrizInvalidaInversaError, MatrizNaoInversivelModuloError
 
-def converter_matriz_numpy(matriz: List[int] | List[List[int]] | NDArray[int64] | List[float] | List[List[float]] | NDArray[float64]) -> NDArray[int64] | NDArray[float64]:
+def converter_para_numpy(matriz: List[int] | List[List[int]] | NDArray[int64] | List[float] | List[List[float]] | NDArray[float64]) -> NDArray[int64] | NDArray[float64]:
     '''
     Converte matriz para array numpy.
 
@@ -29,14 +29,14 @@ def converter_matriz_numpy(matriz: List[int] | List[List[int]] | NDArray[int64] 
 
     return matriz_np
 
-def _is_matriz_quadrada(matriz: NDArray[int64|float64]) -> bool:
+def _is_matriz_quadrada(matriz: NDArray[int64] | NDArray[float64]) -> bool:
     '''
     Retorna True se a matriz passada como
     parâmetro é quadrada, senão retorna False.
 
     Params
     ------
-    matriz: NDArray[int64|float64]
+    matriz: NDArray[int64] | NDArray[float64]
         Matriz a ser validada.
 
     Returns
@@ -71,8 +71,8 @@ def multiplicar_matrizes(matriz_a: List[int | float] | List[List[int | float]] |
     '''
 
     # Converte matrizes para numpy
-    matriz_a_np = converter_matriz_numpy(matriz_a)
-    matriz_b_np = converter_matriz_numpy(matriz_b)
+    matriz_a_np = converter_para_numpy(matriz_a)
+    matriz_b_np = converter_para_numpy(matriz_b)
 
     # Obtém dimensões das matrizes
     linhas_matriz_a, *colunas_matriz_a = matriz_a_np.shape
@@ -105,14 +105,14 @@ def multiplicar_matrizes(matriz_a: List[int | float] | List[List[int | float]] |
 
     return matriz_resultante
 
-def determinante(matriz: NDArray[int64|float64]) -> float:
+def determinante(matriz: List[int] | List[List[int]] | NDArray[int64] | List[float] | List[List[float]] | NDArray[float64]) -> float:
     """
     Calcula o determinante de uma matriz usando eliminação de Gauss
     com pivotamento parcial.
 
     Params
     ------
-    matriz : NDArray[int64|float64]
+    matriz : NDArray[int64] | NDArray[float64]
         Matriz quadrada.
 
     Returns
@@ -124,36 +124,37 @@ def determinante(matriz: NDArray[int64|float64]) -> float:
     MatrizInvalidaMultiplicacaoError se as matrizes
     possuem dimensões incompatíveis.
     """
-    matriz = matriz.astype(float)       # Garante que a matriz seja float
-    n = matriz.shape[0]
+    matriz_np = converter_para_numpy(matriz)
+    matriz_np = matriz_np.astype(float)       # Garante que a matriz seja float
+    n = matriz_np.shape[0]
 
     # Verifica se matriz é quadrada
-    if not _is_matriz_quadrada(matriz):
-        raise MatrizInvalidaDeterminanteError("A matriz precisa ser quadrada, matriz recebida possui shape", matriz.shape)
+    if not _is_matriz_quadrada(matriz_np):
+        raise MatrizInvalidaDeterminanteError("A matriz precisa ser quadrada, matriz recebida possui shape", matriz_np.shape)
 
     det = 1.0
     troca_sinal = 1
 
     for i in range(n):
         # Pivotamento parcial: escolher o maior elemento da coluna
-        pivot = i + np.argmax(np.abs(matriz[i:, i]))
+        pivot = i + np.argmax(np.abs(matriz_np[i:, i]))
 
         # Se o pivot é zero → determinante = 0
-        if matriz[pivot, i] == 0:
+        if matriz_np[pivot, i] == 0:
             return 0.0
 
         # Troca de linhas se necessário
         if pivot != i:
-            matriz[[i, pivot]] = matriz[[pivot, i]]
+            matriz_np[[i, pivot]] = matriz_np[[pivot, i]]
             troca_sinal *= -1  # trocar linhas altera o sinal do determinante
 
         # Eliminação
         for j in range(i+1, n):
-            fator = matriz[j, i] / matriz[i, i]
-            matriz[j, i:] -= fator * matriz[i, i:]
+            fator = matriz_np[j, i] / matriz_np[i, i]
+            matriz_np[j, i:] -= fator * matriz_np[i, i:]
 
     # O determinante é o produto dos elementos da diagonal × sinal das trocas
-    elementos_diagonal = [matriz[i,i] for i in range(n)]
+    elementos_diagonal = [matriz_np[i,i] for i in range(n)]
 
     produto_elementos_diagonal = 1
 
@@ -170,76 +171,55 @@ def determinante(matriz: NDArray[int64|float64]) -> float:
 
     return det
 
-def matriz_inversa(matriz: NDArray[int64|float64]) -> NDArray[int64] | NDArray[float64]:
-    '''
-    Calcula a matriz inversa da matriz dada
-    usando eliminação de Gauss-Jordan
-    com pivotamento parcial
+def matriz_inversa(M):
+    n = len(M)
 
-    Params
-    ------
-    matriz: NDArray[int64|float64]
-        Matriz a ser invertida.
+    # Verificação básica: matriz deve ser quadrada
+    for linha in M:
+        if len(linha) != n:
+            raise ValueError("A matriz deve ser quadrada (n x n).")
 
-    Returns
-    -------
-    Matriz inversa.
-    '''
-    matriz = matriz.astype(float)       # Garante que a matriz seja float
-    n = matriz.shape[0]
-
-    # Verifica se matriz é quadrada
-    if not _is_matriz_quadrada(matriz):
-        raise MatrizInvalidaInversaError("A matriz precisa ser quadrada, matriz recebida possui shape", matriz.shape)
-
-    matriz_list = matriz.tolist()
-
-        # Cria cópia da matriz e identidade
-    M = [linha[:] for linha in matriz_list]              # cópia profunda
+    # Cria matriz aumentada [M | I]
+    # Faz cópia profunda para não alterar a original
+    A = [linha[:] for linha in M]
     I = [[1 if i == j else 0 for j in range(n)] for i in range(n)]
+    aug = [A[i] + I[i] for i in range(n)]
 
-    # Monta a matriz aumentada [A | I]
+    # Aplica eliminação de Gauss-Jordan
     for i in range(n):
-        M[i] += I[i]
-
-    # Gauss-Jordan
-    for i in range(n):
-        # Pivotamento parcial: encontra linha com maior valor na coluna
-        pivot = max(range(i, n), key=lambda r: abs(M[r][i]))
-
-        # Se pivô é zero → matriz não é invertível
-        if M[pivot][i] == 0:
-            raise MatrizInvalidaInversaError("A matriz não é invertível (determinante zero).")
-
-        # Troca de linhas
-        if pivot != i:
-            M[i], M[pivot] = M[pivot], M[i]
+        # Encontra pivô (se o pivô for zero, tenta trocar por linha abaixo)
+        if aug[i][i] == 0:
+            for k in range(i + 1, n):
+                if aug[k][i] != 0:
+                    aug[i], aug[k] = aug[k], aug[i]
+                    break
+            else:
+                raise ValueError("A matriz não é inversível (determinante zero).")
 
         # Normaliza linha do pivô
-        piv = M[i][i]
-        M[i] = [x / piv for x in M[i]]
+        pivot = aug[i][i]
+        for j in range(2 * n):
+            aug[i][j] /= pivot
 
-        # Zera os outros elementos na coluna
-        for j in range(n):
-            if j != i:
-                fator = M[j][i]
-                M[j] = [M[j][k] - fator * M[i][k] for k in range(2*n)]
+        # Elimina demais linhas
+        for k in range(n):
+            if k != i:
+                fator = aug[k][i]
+                for j in range(2 * n):
+                    aug[k][j] -= fator * aug[i][j]
 
-    # Extrai a parte da direita como inversa
-    matriz_inversa = [linha[n:] for linha in M]
+    # Extrai matriz inversa da parte direita
+    inversa = [linha[n:] for linha in aug]
+    return inversa
 
-    matriz_inversa_np = converter_matriz_numpy(matriz_inversa)
-
-    return matriz_inversa_np
-
-def obter_inverso_modular(matriz: NDArray[int64|float64], modulo: int) -> float | None:
+def obter_inverso_modular(matriz: NDArray[int64] | NDArray[float64], modulo: int) -> float:
     '''
     Obtém o inverso modular multiplicativo da
     matriz passada como parâmetro.
 
     Params
     ------
-    matriz : NDArray[int64|float64]
+    matriz : NDArray[int64] | NDArray[float64]
         Matriz original.
     modulo : int
         Módulo que será utilizado no cálculo.
@@ -250,7 +230,8 @@ def obter_inverso_modular(matriz: NDArray[int64|float64], modulo: int) -> float 
 
     Raises
     ------
-    ValueError se o inverso modular não existir.
+    MatrizNaoInversivelModuloError se a matriz não for
+    inversível pelo módulo dado.
     '''
 
     det = determinante(matriz)
@@ -259,9 +240,9 @@ def obter_inverso_modular(matriz: NDArray[int64|float64], modulo: int) -> float 
         x = pow(det, -1, modulo) # type: ignore
         return x
     except ValueError:
-        print(f"O inverso modular de {det} módulo {modulo} não existe.")
+        raise MatrizNaoInversivelModuloError(f"A matriz não é inversível módulo {modulo}.")
 
-def multiplicar_matriz_por_escalar(matriz: NDArray[int64|float64], escalar: int | float):
+def multiplicar_matriz_por_escalar(matriz: NDArray[int64] | NDArray[float64], escalar: int | float):
     '''
     Faz a multiplicação da matriz
     passada como parâmetro pelo
@@ -269,7 +250,7 @@ def multiplicar_matriz_por_escalar(matriz: NDArray[int64|float64], escalar: int 
 
     Params
     ------
-    matriz : NDArray[int64|float64]
+    matriz : NDArray[int64] | NDArray[float64]
         Matriz a ser multiplicada pelo escalar.
     escalar: int | float
         Número racional para multiplicar a matriz por.
@@ -289,9 +270,101 @@ def multiplicar_matriz_por_escalar(matriz: NDArray[int64|float64], escalar: int 
 
     return matriz_copia
 
-if __name__ == "__main__":
-    matriz = converter_matriz_numpy([[0,2,4,2], [1,2,3,4]])
+def calcular_modulo_elementos_matriz(matriz: NDArray[int64] | NDArray[float64], modulo: int | float):
+    '''
+    Calcula matriz módulo modulo.
 
-    matriz_mul = multiplicar_matriz_por_escalar(matriz, 3)
+    Params
+    ------
+    matriz : NDArray[int64] | NDArray[float64]
+        Matriz a ser operada.
+    modulo: int | float
+        Número racional a ser usado como módulo.
 
-    print(matriz, matriz_mul, sep='\n')
+    Returns
+    -------
+    Matriz módulo modulo.
+    '''
+    matriz_copia = matriz.copy()
+
+    n_linhas = matriz_copia.shape[0]
+    n_colunas = matriz_copia.shape[1]
+
+    for i in range(n_linhas):
+        for j in range(n_colunas):
+            matriz_copia[i,j] = matriz_copia[i,j] % modulo
+
+    return matriz_copia
+
+def matriz_cofatores(matriz : NDArray[int64] | NDArray[float64]):
+    """
+    Constrói a matriz de cofatores de uma matriz quadrada.
+
+    Params
+    ------
+    matriz : NDArray[int64] | NDArray[float64]
+        Matriz quadrada (n, n).
+
+    Returns
+    -------
+    Matriz de cofatores C, onde
+    C[i][j] = (-1)^(i+j) * det(submatriz(i,j)).
+    """
+    matriz_py = matriz.tolist()
+    n = len(matriz_py)
+    matriz_de_cofatores = [[0] * n for _ in range(n)]
+
+    for linha in range(n):
+        for coluna in range(n):
+
+            # Submatriz removendo linha i e coluna j
+            submatriz = (
+                matriz_py[:linha] + matriz_py[linha+1:]  # remove linha
+            )
+            submatriz = [
+                linha_atual[:coluna] + linha_atual[coluna+1:]
+                for linha_atual in submatriz
+            ]
+
+            menor_complementar = determinante(submatriz) # type: ignore
+            sinal = (-1) ** (linha + coluna)
+
+            matriz_de_cofatores[linha][coluna] = sinal * menor_complementar
+
+    return converter_para_numpy(matriz_de_cofatores)
+
+
+def transposta(matriz : NDArray[int64] | NDArray[float64]) -> NDArray[int64] | NDArray[float64]:
+    """
+    Retorna a transposta de uma matriz M.
+
+    Params
+    ------
+    matriz : NDArray[int64] | NDArray[float64]
+        Matriz (n x m).
+
+    Returns
+    -------
+    Matriz transposta (m x n).
+    """
+    matriz_py = matriz.tolist()
+
+    return converter_para_numpy([list(coluna) for coluna in zip(*matriz_py)])
+
+
+def matriz_adjunta(matriz: NDArray[int64] | NDArray[float64]) -> NDArray[int64] | NDArray[float64]:
+    """
+    Calcula a matriz adjunta (adj(A)) de uma matriz quadrada.
+
+    Params
+    ------
+    matriz : NDArray[int64] | NDArray[float64]
+        Matriz quadrada (n, n).
+
+    Returns
+    -------
+    A matriz adjunta adj(A) = cof(A)^T
+    """
+    matriz_de_cofatores = matriz_cofatores(matriz)
+    matriz_adjunta = transposta(matriz_de_cofatores)
+    return matriz_adjunta

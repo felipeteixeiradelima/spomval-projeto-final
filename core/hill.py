@@ -4,13 +4,15 @@ import numpy as np
 from numpy import int64
 from numpy.typing import NDArray
 
-from exceptions import TextoInvalidoError
+from .exceptions import TextoInvalidoError
 
 from . import matrizes
 
 # Lista que mapeia cada letra do alfabeto com um número (índice da lista)
 _LISTA_ALFABETO = ['A','B','C','D','E','F','G','H','I','J','K','L','M',
                    'N','O','P','Q','R','S','T','U','V','W','X','Y','Z']
+
+_MODULO = 26
 
 def _completar_texto(texto: str, n: int) -> str:
     '''
@@ -33,7 +35,7 @@ def _completar_texto(texto: str, n: int) -> str:
     '''
     tamanho_texto = len(texto)
 
-    qtd_caracteres_faltando = tamanho_texto % n
+    qtd_caracteres_faltando = n - tamanho_texto % n
 
     string_x = ''.join(['X' for _ in range(qtd_caracteres_faltando)])
 
@@ -86,7 +88,7 @@ def _converter_numeros_em_texto(numeros: List[int] | List[List[int]] | NDArray[i
     numeros_np = np.array(numeros).flatten() # converte a lista de números para numpy
 
     for numero in numeros_np:
-        texto += _LISTA_ALFABETO[int(numero) % 26]
+        texto += _LISTA_ALFABETO[int(numero) % _MODULO]
 
     return texto
 
@@ -111,7 +113,7 @@ def criptografar_hill(texto: str, matriz_codificadora: List[int] | List[List[int
     '''
     texto_criptografado: str = ''
 
-    matriz_codificadora_np = matrizes.converter_matriz_numpy(matriz_codificadora) # converte a matriz para numpy
+    matriz_codificadora_np = matrizes.converter_para_numpy(matriz_codificadora) # converte a matriz para numpy
 
     n = matriz_codificadora_np.shape[0] # ordem da matriz
 
@@ -127,9 +129,11 @@ def criptografar_hill(texto: str, matriz_codificadora: List[int] | List[List[int
 
         grupo_multiplicado = matrizes.multiplicar_matrizes(matriz_codificadora_np, grupo_int) # multiplica a matriz codificadora pelo grupo
 
-        grupo_multiplicado_str = _converter_numeros_em_texto(grupo_multiplicado)
+        grupo_multiplicado_modulo = matrizes.calcular_modulo_elementos_matriz(grupo_multiplicado, modulo=_MODULO)
 
-        texto_criptografado +=grupo_multiplicado_str
+        grupo_multiplicado_str = _converter_numeros_em_texto(grupo_multiplicado_modulo) # type: ignore
+
+        texto_criptografado += grupo_multiplicado_str
 
     return texto_criptografado
 
@@ -150,22 +154,52 @@ def decriptografar_hill(texto_encriptografado: str,
     -------
     Texto descriptografado.
     '''
-    MODULO = 26
 
     # Converte matriz codificadora para numpy
-    matriz_codificadora_np = matrizes.converter_matriz_numpy(matriz_codificadora)
+    matriz_codificadora_np = matrizes.converter_para_numpy(matriz_codificadora)
+
+    n = matriz_codificadora_np.shape[0]
 
     # Cria matriz decodificadora vazia
     matriz_decodificadora = np.empty(matriz_codificadora_np.shape)
 
-    # Obtém matriz inversa e inverso modular da matriz codificadora
-    matriz_inversa = matrizes.matriz_inversa(matriz_codificadora_np)
-    inverso_modular = matrizes.obter_inverso_modular(matriz_codificadora_np, modulo=MODULO)
+    # Obtém matriz adjunta e inverso modular da matriz codificadora
+    matriz_adjunta = matrizes.matriz_adjunta(matriz_codificadora_np)
+    inverso_modular = matrizes.obter_inverso_modular(matriz_codificadora_np, modulo=_MODULO)
 
-    # Obtém matriz decodificadora (inverso * matriz_inversa % 26)
+    # Obtém matriz decodificadora (inverso * matriz_adjunta % 26)
+    matriz_decodificadora = matrizes.multiplicar_matriz_por_escalar(matriz_adjunta, inverso_modular)
+    matriz_decodificadora = matrizes.calcular_modulo_elementos_matriz(matriz_decodificadora, modulo=_MODULO)
 
     # Itera sobre os elementos do texto de forma agrupada
-        # Multiplica a matriz codificadora pelo grupo (fazendo % 26)
-        # Converte para texto
+    
+    # Percorre o texto separando em grupos de n letras
+    qtd_grupos = int( len(texto_encriptografado) / n )
 
-    return ''
+    texto_decriptografado = ''
+
+    for i in range(qtd_grupos):
+        grupo_str = texto_encriptografado[i*n : (i+1)*n] # obtém o grupo do texto
+
+        grupo_int = _converter_texto_em_numeros(grupo_str) # converte em números
+
+        grupo_multiplicado = matrizes.multiplicar_matrizes(matriz_decodificadora, grupo_int) # multiplica a matriz decodificadora pelo grupo
+
+        grupo_multiplicado_mod = matrizes.calcular_modulo_elementos_matriz(grupo_multiplicado, modulo=_MODULO)
+
+        grupo_multiplicado_str = _converter_numeros_em_texto(grupo_multiplicado_mod) # type: ignore
+
+        texto_decriptografado += grupo_multiplicado_str
+
+    return texto_decriptografado
+
+if __name__ == "__main__":
+    matriz = [[2,1,2],[-1,4,1],[4,2,3]]
+    teste = criptografar_hill("CONFIRMADO", matriz)
+
+    print(teste)
+
+    teste_convertido = decriptografar_hill(teste, matriz)
+
+    print(teste_convertido)
+

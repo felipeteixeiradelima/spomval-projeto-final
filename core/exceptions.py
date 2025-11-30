@@ -53,3 +53,11 @@ class MatrizInvalidaInversaError(Exception):
     '''
     def __init__(self, *args: object) -> None:
         super().__init__(*args)
+
+class MatrizNaoInversivelModuloError(Exception):
+    '''
+    Exception utilizada quando uma matriz não é
+    inversível por um dado módulo.
+    '''
+    def __init__(self, *args: object) -> None:
+        super().__init__(*args)
